@@ -1,0 +1,147 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      VITE_SUPABASE_PROJECT_ID: ci-project
+      VITE_SUPABASE_URL: https://example.supabase.co
+      VITE_SUPABASE_PUBLISHABLE_KEY: ci-publishable-key
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type-check
+        run: npm run typecheck
+
+      # `npm run typecheck` is tsc over tsconfig.app.json (include: ["src"])
+      # and tsconfig.node.json (vite.config.ts) -- neither reaches
+      # supabase/functions/, so the edge functions need their own step below.
+      # `deno check` is the same checker the functions run under; see
+      # scripts/check-functions-types.mjs for why this is not another
+      # tsconfig.
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.5
+
+      - name: Type-check the edge functions
+        run: npm run functions:check
+
+      # Drives the deployed handlers directly through a routed fetch stub --
+      # the 401/403 authorization paths need no stub at all, since they
+      # return before any I/O. See supabase/functions/_tests/.
+      - name: Test the edge function handlers
+        run: npm run functions:test
+
+      - name: Check for orphan production dependencies
+        run: npm run deps:check
+
+      - name: Check the secret inventory against the call sites
+        run: npm run env:check
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.115.0
+
+      - name: Start local Supabase stack
+        # Not excluding `realtime`: its own bootstrap is what makes later
+        # migrations able to ALTER realtime.messages (20260512182022 does
+        # this in this repo) -- skipping the container left that table in a
+        # state the migration replay couldn't own, and the whole stack start
+        # failed before ever reaching this file's tests.
+        run: supabase start --exclude studio,imgproxy,logflare,vector
+
+      - name: Run SQL contract tests
+        run: |
+          for f in supabase/tests/replay_contract.sql \
+                   supabase/tests/credit_rpc_contract.sql \
+                   supabase/tests/admin_rpc_contract.sql \
+                   supabase/tests/phase3_observability_contract.sql; do
+            echo "--- $f"
+            psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" \
+              -v ON_ERROR_STOP=1 -f "$f"
+          done
+
+      - name: Stop local Supabase stack
+        if: always()
+        run: supabase stop --no-backup
+
+      - name: Check the test count the README claims
+        run: npm run test:count
+
+      - name: Test with coverage floor
+        run: npm run test:coverage
+
+      - name: Build
+        run: npm run build
+
+      - name: Enforce bundle budget
+        run: npm run bundle:check
+
+      - name: Audit production dependencies
+        run: npm run audit:prod
+
+  # ---------------------------------------------------------------------------
+  # Deploys every edge function on every push to main, with no path filter and
+  # no per-function list. Both would be faster; both would reintroduce the
+  # same failure mode a filtered or partial deploy allows -- a function nobody
+  # remembered to add, or a change a filter didn't match, silently stays
+  # behind while everything else looks current. `functions deploy` with no
+  # slug enumerates the directory, skips `_`-prefixed dirs (`_shared`,
+  # `_tests`), and is idempotent -- redeploying an unchanged function costs
+  # about a minute and cannot drift.
+  #
+  # `verify_jwt` comes from `supabase/config.toml`, so the token- and
+  # signature-authenticated functions keep it false through a deploy.
+  deploy-functions:
+    name: Deploy edge functions
+    needs: verify
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # A second merge landing mid-deploy would otherwise race the first. Queue
+    # instead of cancelling: a cancelled deploy leaves production on a version
+    # nobody chose, which is the thing this job exists to prevent.
+    concurrency:
+      group: deploy-functions
+      cancel-in-progress: false
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.115.0
+
+      # The project ref is not a secret -- it is already in the shipped client
+      # bundle as VITE_SUPABASE_PROJECT_ID. The access token is.
+      - name: Deploy every edge function
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: supabase functions deploy --project-ref tumqhovjzjojmrfoshou

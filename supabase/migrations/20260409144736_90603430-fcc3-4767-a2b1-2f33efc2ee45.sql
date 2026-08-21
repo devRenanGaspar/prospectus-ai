@@ -1,0 +1,1 @@
+ALTER TABLE public.profiles ADD COLUMN whatsapp_number_last text;

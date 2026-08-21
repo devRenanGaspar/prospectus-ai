@@ -1,0 +1,12 @@
+{
+  "//": "Type-check configuration for supabase/functions/, used only by scripts/check-functions-types.mjs. It lives at the repository root, and not inside supabase/functions/, on purpose: `supabase functions deploy` reads that directory, and a config file there would become an input to production deploys for the sake of a CI check. Deno never discovers this file on its own -- it only looks for deno.json/deno.jsonc -- so it applies exclusively when passed with --config.",
+  "//jsx": "auth-email-hook renders React Email templates (_shared/email-templates/*.tsx). Its own supabase/functions/auth-email-hook/deno.json carries these same settings for the deploy path; --config overrides discovery, so the check path needs them too. Harmless for the other eleven functions, which have no .tsx in their import graph.",
+  "//nodeModulesDir": "Without this, the root package.json makes Deno resolve npm: specifiers through node_modules and fail on standardwebhooks, which npm has no reason to install. 'none' sends them to Deno's own cache, which is how the functions actually run in production.",
+  "compilerOptions": {
+    "lib": ["deno.window", "deno.ns", "dom"],
+    "jsx": "react-jsx",
+    "jsxImportSource": "npm:react@18.3.1",
+    "types": ["npm:@types/react@18.3.1"]
+  },
+  "nodeModulesDir": "none"
+}

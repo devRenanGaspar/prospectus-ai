@@ -1,0 +1,1 @@
+ALTER TABLE public.profiles ADD COLUMN context_faq jsonb DEFAULT '[]'::jsonb;

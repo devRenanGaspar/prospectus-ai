@@ -1,0 +1,108 @@
+-- ============================================================================
+-- One-off remediation, ALREADY APPLIED BY HAND on 2026-08-14. Kept as a record
+-- of what was run — NOT as a migration to replay. The body below is inert.
+--
+-- THIS FILE INTENTIONALLY DIFFERS FROM PRODUCTION'S LEDGER ROW, and that is
+-- worth stating rather than leaving as silent drift. Every other migration's
+-- body matches `supabase_migrations.schema_migrations.statements` for the same
+-- version. This one does not: production recorded the statements that actually
+-- executed, and this file is a redacted, inert record of them. Both were
+-- redacted on 2026-08-18 — until then production still held the customer's
+-- account UUID and the row was still named after the customer, because the
+-- history rewrite cleaned git and nobody swept the database.
+--
+-- Renamed from 20260814190000 on 2026-08-18 to match the version production
+-- actually registered; the sanitised name is kept.
+--
+-- Refunded two erred copy requests and un-stuck their leads for a single
+-- account. The account id and the two copy_request ids were removed from this
+-- file after the fact: they identify a real customer and this repository is
+-- public. They have no operational use here, because this file no longer
+-- executes anything (see the guard below).
+--
+-- Root cause: n8n's published workflows were writing to the pre-migration
+-- Supabase project while this project's edge functions (and credit charges)
+-- run here. request_copy() debited credits and moved leads to COPY_PENDING,
+-- but the copy generation + status callback never reached this project, so
+-- both requests never resolved.
+--
+-- Two erred copy_requests, discovered via ops_stuck_leads / ops_stuck_copy_requests:
+--   - request A (2026-08-06): 48 leads, 144 credits, status already 'failed'
+--     but never refunded.
+--   - request B (2026-08-10): 191 leads, 573 credits, stuck in 'processing'.
+--     All 48 leads from request A are a subset of these 191 — those leads were
+--     charged twice across the two requests.
+--
+-- Verified before running it: exactly 191 leads for that user were in
+-- status = 'COPY_PENDING', matching the union of both requests' lead_ids with
+-- no leftover leads from unrelated activity. 717 credits were returned and the
+-- leads were moved back to 'NEW'.
+--
+-- Followed the refund_unused_search_credits() pattern: credit the balance, log
+-- a *_REFUND usage_logs row with a negative cost.
+--
+-- WHY THIS IS INERT
+-- -----------------
+-- This version was never registered in supabase_migrations.schema_migrations,
+-- so a tool that applies "pending" migrations would run it against a database
+-- that already has the refund. It was not idempotent: re-running it would have
+-- granted another 717 credits and written duplicate GENERATE_COPY_REFUND rows.
+-- The statements are kept as a comment for the record; nothing executes.
+-- ============================================================================
+
+DO $$
+begin
+  raise notice
+    'Migration 20260814190000 is a historical record of a manual one-off '
+    'remediation applied on 2026-08-14. It intentionally performs no work. '
+    'See the file header for what was run.';
+end;
+$$;
+
+-- ----------------------------------------------------------------------------
+-- What was executed by hand, with the customer identifiers removed:
+--
+-- DO $$
+-- declare
+--   _user_id uuid := '<redacted: account id>';
+--   _req_a   uuid := '<redacted: copy_request id, 2026-08-06>';
+--   _req_b   uuid := '<redacted: copy_request id, 2026-08-10>';
+--   _refund_a integer := 144;
+--   _refund_b integer := 573;
+-- begin
+--   update public.profiles
+--   set credits_balance = credits_balance + _refund_a + _refund_b
+--   where id = _user_id;
+--
+--   insert into public.usage_logs (user_id, action_name, cost, lead_id, metadata)
+--   values (
+--     _user_id, 'GENERATE_COPY_REFUND', -_refund_a, null,
+--     jsonb_build_object(
+--       'copy_request_id', _req_a,
+--       'refunded_units', 48,
+--       'reason', 'STUCK_CROSS_PROJECT_SPLIT',
+--       'note', 'n8n was writing to a different Supabase project; copy generation never completed or reported back.'
+--     )
+--   );
+--
+--   insert into public.usage_logs (user_id, action_name, cost, lead_id, metadata)
+--   values (
+--     _user_id, 'GENERATE_COPY_REFUND', -_refund_b, null,
+--     jsonb_build_object(
+--       'copy_request_id', _req_b,
+--       'refunded_units', 191,
+--       'reason', 'STUCK_CROSS_PROJECT_SPLIT',
+--       'note', 'n8n was writing to a different Supabase project; copy generation never completed or reported back.'
+--     )
+--   );
+--
+--   update public.copy_requests
+--   set status = 'failed'
+--   where id in (_req_a, _req_b);
+--
+--   update public.leads
+--   set status = 'NEW', updated_at = now()
+--   where user_id = _user_id and status = 'COPY_PENDING';
+-- end;
+-- $$;
+-- ----------------------------------------------------------------------------
