@@ -140,12 +140,19 @@ export async function handler(req: Request): Promise<Response> {
 
     // Inactive (BLOCKED) accounts cannot trigger any automation — even with a
     // still-valid JWT, the proxy refuses.
-    const { data: callerProfile } = await adminClient
+    //
+    // The refusal is written as "proceed only if the role was read and is not
+    // BLOCKED", not as "refuse if the role is BLOCKED". The difference is the
+    // direction of failure: a discarded error leaves `callerProfile` null, and
+    // a bare `role === "BLOCKED"` test reads null as "not blocked" and lets the
+    // request through. A lookup that could not establish who is calling has to
+    // refuse, not assume.
+    const { data: callerProfile, error: callerProfileError } = await adminClient
       .from("profiles")
       .select("role")
       .eq("id", userId)
       .single();
-    if (callerProfile?.role === "BLOCKED") {
+    if (callerProfileError || !callerProfile || callerProfile.role === "BLOCKED") {
       return new Response(JSON.stringify({ error: "Forbidden" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

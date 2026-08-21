@@ -57,8 +57,6 @@ const ALLOWED: Record<string, string> = {
     "a failed read leaves callerProfile null, which the next line answers with 403 -- failing closed is the correct direction",
   "supabase/functions/admin-update-password/handler.ts:profiles:profile":
     "a failed read leaves the caller unidentified, and the next line answers 403 rather than proceeding",
-  "supabase/functions/webhook-proxy/handler.ts:profiles:callerProfile":
-    "identical shape to the two admin functions: a null result is refused, not assumed authorized",
   "supabase/functions/webhook-proxy/handler.ts:copy_requests:cr":
     "a failed read leaves cr null and the request is refused rather than dispatched",
   "supabase/functions/webhook-proxy/handler.ts:lead_searches:sr":

@@ -1,9 +1,9 @@
 # Incidents
 
-Real production incidents, written up after the fact. No customer names, no
-tenant identifiers, no internal URLs — see [SECURITY.md](../SECURITY.md) for
-why. Each entry: what happened, how it was found, what fixed it, what it
-changed going forward.
+Production incidents, written up after the fact. These writeups carry no
+customer names and no tenant identifiers; they are not a complete log of
+everything that has gone wrong. Each entry: what happened, how it was found,
+what fixed it, what it changed going forward.
 
 ## 2026-08 — n8n writing to the wrong Supabase project
 

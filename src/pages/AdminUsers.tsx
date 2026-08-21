@@ -178,7 +178,7 @@ const AdminUsers = () => {
               {
                 icon: MessageSquare,
                 label: "WhatsApp",
-                value: detailUser?.whatsapp_status === "connected" ? (
+                value: detailUser?.whatsapp_status === "active" ? (
                   <Badge variant="success">Conectado</Badge>
                 ) : (
                   <Badge variant="secondary">Desconectado</Badge>

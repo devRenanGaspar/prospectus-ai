@@ -58,7 +58,7 @@ service-role-only aggregate migration.
 
 ## Deployment boundary
 
-Merging this code does not deploy the functions or enable production writes.
-The observability migration must be applied before deploying the modified Edge
-Functions. n8n workflows should then be updated to echo the technical
-correlation ID, followed by a sanitized smoke test.
+Merging to `main` deploys the modified edge functions automatically, so the
+observability migration must be applied **before** the merge rather than
+between merge and deploy. n8n workflows should then be updated to echo the
+technical correlation ID, followed by a sanitized smoke test.

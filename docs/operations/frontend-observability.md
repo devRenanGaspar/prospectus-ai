@@ -64,12 +64,17 @@ policy instead.
 
 ## Configuration and deployment order
 
-No production deployment is implied by merging the code. Deploy in this order:
+Merging to `main` deploys every edge function, including `frontend-telemetry`
+— the `deploy-functions` job in `.github/workflows/ci.yml` runs on every push
+to `main` with no per-function list. So steps 1 and 2 below are prerequisites
+of the merge, not of a later manual deploy: the function 503s without its
+secret, and the schema has to exist before anything writes to it.
 
 1. Apply the already-reviewed observability schema migration.
 2. Set `OBSERVABILITY_ALLOWED_ORIGINS` as a private, comma-separated Edge
    Function secret. Never commit the real list.
-3. Deploy `frontend-telemetry` with JWT verification enabled.
+3. Merge, which deploys `frontend-telemetry` with JWT verification enabled
+   (`verify_jwt` comes from `supabase/config.toml`).
 4. Configure `VITE_OBSERVABILITY_SAMPLE_RATE` in the hosting environment.
    The default is `1` (100%) for initial calibration.
 5. Optionally set sanitized `VITE_APP_RELEASE` and `VITE_APP_BUILD` identifiers.
