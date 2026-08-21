@@ -7,9 +7,7 @@ local businesses from Google Maps, writes a personalised first message for each
 one, sends it over WhatsApp, and hands the conversation to an SDR agent that
 qualifies the lead and books the meeting.
 
-Built and operated solo by [Renan Gaspar](https://github.com/devRenanGaspar) —
-renan@agenciamada.com.br. How it was built, including what was generated and
-what was not, is in [How this was built](#how-this-was-built) below.
+Built and operated solo by [Renan Gaspar](https://github.com/devRenanGaspar).
 
 ## Status
 
@@ -17,17 +15,16 @@ Live in production at [prospectus.ia.br](https://prospectus.ia.br), serving real
 agencies since March 2026. Figures below are read from the production database
 on 2026-08-21:
 
-| | |
+| Signal | Measured |
 |---|---|
-| Accounts | 160 registered, 12 active in the last 30 days |
-| Leads | 11,316 sourced, 6,308 moved past the initial state |
-| WhatsApp messages | 11,624 (4,532 from the agent, 6,167 from leads, 925 from a human operator) |
-| Tables | 34 domain tables plus one per-tenant `crm_<phone>` table (54 today), all RLS-enabled |
-| Automated tests | 221, enforced by CI with a coverage floor |
+| Leads sourced | 11,316, of which 6,308 moved past the initial state |
+| WhatsApp messages | 11,624 — 4,532 from the agent, 6,167 from leads, 925 from a human operator |
+| Tables | 35 domain tables plus one conversation-state table per tenant, all RLS-enabled |
 
-The lead reply count is worth reading twice: leads sent more messages than the
-agent did, which is the only outcome metric here that says the conversations are
-real rather than broadcast.
+Leads sent more messages than the agent did. That ratio is the one number here
+that distinguishes a conversation from a broadcast, and it is why the reliability
+work below went where it did: the system was charging money and holding up its
+side of real threads.
 
 ![Lead sourcing](docs/media/search.png)
 
@@ -40,15 +37,9 @@ The board is the state machine. A lead moves `NEW` to `COPY_READY` to `SENT` and
 onward, and every paid transition is charged and recorded before the work is
 dispatched.
 
-![Agent conversation](docs/media/chat.png)
-
-A conversation thread, with the agent's toggle and the generated opening message
-alongside it.
-
-The leads in these screenshots are synthetic, seeded by the script below, with
-one exception: the conversation view is a real thread, because a synthetic one
-has no messages in it. Its identifying fields — name, phone, company, Instagram
-— are blacked out; the business category, city and rating are not.
+The leads in these screenshots are synthetic, seeded by the script below. There
+is no screenshot of a live conversation: every real thread belongs to a
+customer, and a redacted one shows less than it hides.
 
 ### Demo
 
@@ -66,48 +57,6 @@ The seed authenticates as a normal user and writes through RLS, uses invalid
 `5511 90000-00xx` placeholder numbers, and never places a lead in `COPY_PENDING`
 or `SEND_PENDING` — those are processing states, and `SEND_PENDING` is polled by
 the send queue, so seeding into it would fire a real WhatsApp message.
-
-## How this was built
-
-This repository is a squashed public snapshot of a project developed over
-several months — it was not written in one sitting, and that's worth stating
-plainly rather than leaving a reader to guess from a single commit.
-
-**The starting point was generated.** The first version was a CRUD skeleton
-produced with [Lovable](https://lovable.dev), an AI app builder: the Kanban
-board, the shadcn/ui component library, the auth screens, the initial schema.
-`src/integrations/lovable/` is still there and still in the Google sign-in
-path.
-
-**The implementation since has been AI-assisted throughout**, with
-[Claude Code](https://claude.com/claude-code) as a working partner across
-most of it. That is accurate and it stays.
-
-**What the generator did not do is the part worth reviewing.** A code generator
-does not notice that `public.messages` has had no write for four days while the
-agent workflows run clean, and conclude from the silence that n8n is writing to
-the wrong Supabase project. It does not decide that a charge and its outcome
-must not be able to diverge, and rewrite a client-side debit-then-transition
-into one idempotent `SECURITY DEFINER` RPC. It does not reason that the
-highest-harm failure of a forced cutover is a silenced SDR agent resuming
-messaging, and rescue 154 leads' on/off flags before repointing anything. It
-does not decide which of two model providers gets a real fallback and which
-does not, and write down why.
-
-Those decisions are mine, and they are the ones the artifacts below record:
-
-- [`docs/adr/`](docs/adr/) — six decisions with the alternatives and the costs
-- [`docs/incidents.md`](docs/incidents.md) — three production incidents, including
-  one where the detection worked and the response did not
-- [`docs/eval-report.md`](docs/eval-report.md) — an eval harness that found a
-  real Portuguese verb-agreement bug in a production grounding check
-- [`docs/security-risk-register.md`](docs/security-risk-register.md) — accepted
-  risks with applicability and review dates
-
-The honest summary: the typing was largely automated, the judgement was not,
-and the system runs in production with paying customers on the strength of the
-second. Read the ADRs and the incident log first — they are the parts a
-generator could not have written.
 
 ## The problem
 
@@ -181,6 +130,50 @@ than a shared table — inherited from the pre-migration n8n workflow's fallback
 node; see [ADR 0005](docs/adr/0005-force-cutover-without-full-migration.md) for
 why.
 
+## How this was built
+
+This repository is a squashed public snapshot of a project developed over
+several months — it was not written in one sitting, and that's worth stating
+plainly rather than leaving a reader to guess from a single commit.
+
+**The starting point was generated.** The first version was a CRUD skeleton
+produced with [Lovable](https://lovable.dev), an AI app builder: the Kanban
+board, the shadcn/ui component library, the auth screens, the initial schema.
+`src/integrations/lovable/` is still there and still in the Google sign-in
+path.
+
+**The implementation since has been AI-assisted throughout**, with
+[Claude Code](https://claude.com/claude-code) as a working partner across most
+of it — the code, and also the prose: this README, the documents under
+`docs/`, and most of the comments. That is accurate and it stays. It is worth
+saying explicitly rather than letting a reader work it out from the writing,
+because working it out is worse.
+
+**What the generator did not do is the part worth reviewing.** A code generator
+does not notice that `public.messages` has had no write for four days while the
+agent workflows run clean, and conclude from the silence that n8n is writing to
+the wrong Supabase project. It does not decide that a charge and its outcome
+must not be able to diverge, and rewrite a client-side debit-then-transition
+into one idempotent `SECURITY DEFINER` RPC. It does not reason that the
+highest-harm failure of a forced cutover is a silenced SDR agent resuming
+messaging, and rescue 154 leads' on/off flags before repointing anything. It
+does not decide which of two model providers gets a real fallback and which
+does not, and write down why.
+
+Those decisions are mine, and they are the ones the artifacts below record:
+
+- [`docs/adr/`](docs/adr/) — six decisions, with the alternatives that were
+  live at the time
+- [`docs/incidents.md`](docs/incidents.md) — three production incidents, including
+  one where the detection worked and the response did not
+- [`docs/eval-report.md`](docs/eval-report.md) — an eval harness that found a
+  real Portuguese verb-agreement bug in a production grounding check
+- [`docs/security-risk-register.md`](docs/security-risk-register.md) — what is
+  still wrong, why each one is accepted, and what would change the answer
+
+The summary: the typing was largely automated, the decisions were not, and the
+system ran in production against real money on the strength of the second.
+
 ## Models per stage
 
 | Stage | Model | Fallback | Why |
@@ -246,7 +239,7 @@ the two counted separately because the Deno suite drives the deployed edge
 function handlers directly through a routed fetch stub rather than importing
 them into the Vitest/jsdom environment they don't run in. Alongside them: lint,
 a type-check under `strict`, a separate `deno check` over the twelve edge
-functions (which the frontend type-check does not reach), three SQL contracts
+functions (which the frontend type-check does not reach), four SQL contracts
 against a database rebuilt from the migrations alone, a coverage floor, a
 bundle-size budget, an orphan-dependency check, a check that the secret
 inventory in `docs/environment-variables.md` matches the actual
@@ -262,7 +255,7 @@ above that job in `.github/workflows/ci.yml` for why.
 | `credit-flows` | charge/refund arithmetic, idempotency, double-click safety |
 | `copy-quality` | grounding checks on generated copy |
 | `copy-grounding-checks` | offline port of the same 9 grounding heuristics against synthetic fixtures — see below |
-| `n8n-proxy-contract` | `n8n-proxy`'s request shapes for 9 of its ~25 actions, as zod schemas (`src/lib/n8n-proxy-contract.ts`) — not wired into the live function, a documented, test-checked mirror of it |
+| `n8n-proxy-contract` | `n8n-proxy`'s request shapes for 9 of its 26 actions, as zod schemas (`src/lib/n8n-proxy-contract.ts`) — not wired into the live function, a documented, test-checked mirror of it |
 | `operational-telemetry` | attribute allow-listing, error-code sanitisation |
 | `observability` / `system-health` | queue metrics and health rollups |
 | `supabase/functions/_tests/` (Deno) | the deployed edge function handlers, called directly: the full credential-tier matrix across all 26 `n8n-proxy` actions, the calendar-token-exchange failure modes, the safety deadline, and audit-before-privileged-action for the two admin endpoints |

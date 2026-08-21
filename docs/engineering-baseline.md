@@ -4,9 +4,12 @@
 
 **Repository:** `devRenanGaspar/prospectus-ai`
 
-**Initial public reference:** `a99a494ceb2f89da11c3dd214e22330db42b1055`
-
 **Production Supabase:** `tumqhovjzjojmrfoshou`
+
+The public repository is a squashed snapshot, so the dates below describe when
+the work happened, not commits a reader can open. Where a claim here can be
+checked against something that ships — the workflow file, the migrations, the
+config — that is the thing to check.
 
 This document defines the minimum engineering controls for Prospectus. It is a
 living contract: thresholds may become stricter, but weakening one requires a
@@ -27,22 +30,31 @@ The `CI / verify` job must pass before merge. It runs:
 1. `npm ci`
 2. `npm run lint` with zero warnings
 3. `npm run typecheck` (under `strict`, since 2026-08-17)
-3b. `npm run deps:check`, failing on a production dependency that is declared
+4. `npm run functions:check`, a `deno check` over the edge functions, which the
+   frontend type-check does not reach
+5. `npm run functions:test`, the Deno suite that drives the edge function
+   handlers directly
+6. `npm run deps:check`, failing on a production dependency that is declared
    and never imported
-4. The three SQL contracts, against a database rebuilt from
+7. `npm run env:check`, reconciling `docs/environment-variables.md` against the
+   actual `Deno.env.get()` call sites
+8. The four SQL contracts, against a database rebuilt from
    `supabase/migrations/` alone on a fresh local Supabase stack:
    `replay_contract.sql` (the seeded reference data the product needs to
    function at all), `credit_rpc_contract.sql` (idempotency,
    insufficient-balance rejection, exact-debit correctness and refund
    correctness for `request_send`, `request_copy`, `request_find_leads`,
-   `fail_copy_request` and `refund_unused_search_credits`) and
-   `phase3_observability_contract.sql` (the observability tables, their RLS and
-   the four lifecycle-capture triggers), documented further in
+   `fail_copy_request` and `refund_unused_search_credits`),
+   `admin_rpc_contract.sql` (the signature, grants and clear-plan behaviour of
+   `admin_update_user_profile`) and `phase3_observability_contract.sql` (the
+   observability tables, their RLS and the four lifecycle-capture triggers),
+   documented further in
    `docs/operations/observability-event-contract.md`.
-5. `npm run test:coverage`
-6. `npm run build`
-7. `npm run bundle:check`
-8. `npm run audit:prod`, blocking **high** and critical production advisories
+9. `npm run test:count`
+10. `npm run test:coverage`
+11. `npm run build`
+12. `npm run bundle:check`
+13. `npm run audit:prod`, blocking **high** and critical production advisories
 
 CodeQL analyzes JavaScript and TypeScript on pull requests, pushes to `main`,
 and weekly. Dependabot's automated update PRs are disabled (2026-08-17);
@@ -61,24 +73,11 @@ dependency updates are reviewed manually — see `security-risk-register.md`.
 | Total built JavaScript | 1,839,510 bytes | 3 MiB budget |
 | Largest standard chunk | 741,552 bytes | 750 KiB budget |
 
-The coverage floor is deliberately conservative relative to what's measured:
-it exists to catch regression, not to certify thoroughness, and the gap
-leaves room for the numbers to move as new tests land without every commit
-needing a threshold bump.
-
-**Why branch and function coverage are not gates:** the v8 provider assigns
-exactly 1 function and 1 branch to every file it has no execution data for,
-and most of this project's files are in that state — so most of the
-denominator is placeholders rather than code, and the percentage does not
-measure what its name says. Worse, it moves the wrong way as coverage grows:
-covering a file swaps its single placeholder branch for its N real ones, so
-writing tests can push the ratio down even as real coverage goes up. A gate
-that punishes new tests is worse than no gate.
-
-Statements and lines do not have this problem — v8 counts the real statements
-of a file it never executed — so they remain the two gates. All four numbers
-are still printed by the coverage reporter; only these two enforce a floor in
-CI.
+Coverage is low, and the floor is a regression catch rather than a quality
+claim. Branch and function coverage are not gated because the v8 provider
+counts one placeholder branch and function for every file it never executed,
+which is most of this project — so those two percentages move the wrong way
+as tests are added.
 
 The `LocationPicker` exception (2026-08-05 – 2026-08-17) is gone: the
 component imported `country-state-city`, a GPL-3.0 dependency covering four
@@ -146,8 +145,9 @@ The current advisor inventory and accepted exceptions are documented in
 - The Cloudflare Pages preview is a review signal; its exact GitHub status
   context should be added to branch protection after it is observed on a pull
   request.
-- Production deploys originate from `main` only.
-- Squash is the only enabled merge strategy, and merged branches are deleted.
+- Production deploys originate from `main` only. Merging to `main` deploys every
+  Supabase edge function automatically — see the `deploy-functions` job in
+  `.github/workflows/ci.yml`.
 - The applied `main` protection payload is versioned at
   `.github/branch-protection.json`; repository-setting changes must keep that
   file in sync.
