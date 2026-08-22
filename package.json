@@ -27,7 +27,9 @@
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json",
-    "test:count": "node scripts/check-test-count.mjs"
+    "test:count": "node scripts/check-test-count.mjs",
+    "e2e": "playwright test --config e2e/playwright.config.ts",
+    "typecheck:e2e": "tsc --noEmit -p tsconfig.e2e.json"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",
@@ -72,6 +74,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/typography": "^0.5.16",
     "@testing-library/jest-dom": "^6.6.0",
     "@testing-library/react": "^16.0.0",
