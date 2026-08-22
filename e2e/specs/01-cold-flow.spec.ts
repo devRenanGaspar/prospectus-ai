@@ -9,7 +9,7 @@ import {
   getLeadsBySearch,
   countLeadsWithPhone,
 } from "../fixtures/db";
-import { findSendFailureReason, getExecution, listExecutions } from "../fixtures/n8n";
+import { findSendFailureReason, getExecution, inboundHubEvent, listExecutions } from "../fixtures/n8n";
 import { setupForColdFlow } from "../fixtures/state";
 import { expectCardInColumn, expectLeadDetailShowsCopy, gotoBoard, login, moveLeads, searchLeads } from "../fixtures/ui";
 import { waitUntil } from "../fixtures/wait";
@@ -214,6 +214,14 @@ test("TESTE 1 — cold flow: search, copy, send, delivery", async ({ page }) => 
   );
   console.log(`[teste1] recorded: ${recorded[recorded.length - 1].content?.slice(0, 120)}…`);
 
+  // Matched by content, not by "an execution happened on this hub containing
+  // the agent's phone number" -- that phone number is in every payload this
+  // hub ever produces, ack or not, so that check passed for reasons that had
+  // nothing to do with THIS send. `HUB Tere - 2462` also relays asynchronous
+  // delivery-receipt acks for messages sent well before this run, arriving
+  // with no fixed delay (minutes, observed), so presence alone proves nothing
+  // about what just got sent -- only matching what was actually recorded does.
+  const expectedContent = (recorded[recorded.length - 1].content ?? "").trim();
   const delivered = await waitUntil(
     "delivered-to-handset",
     async (observe) => {
@@ -221,7 +229,8 @@ test("TESTE 1 — cold flow: search, copy, send, delivery", async ({ page }) => 
       observe(`${runs.length} inbound-hub execution(s) since the run started`);
       for (const run of runs) {
         const detail = await getExecution(run.id);
-        if (JSON.stringify(detail.data ?? {}).includes(env.agentPhone)) return detail;
+        const event = inboundHubEvent(detail);
+        if (event?.content && expectedContent.includes(event.content.trim())) return detail;
       }
       return null;
     },

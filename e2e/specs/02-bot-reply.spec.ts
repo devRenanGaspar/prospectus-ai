@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { env } from "../fixtures/env";
 import { getLead } from "../fixtures/db";
 import { AGENT_TOOLS, sayAndExpectNoDelivery } from "../fixtures/conversation";
-import { executedNodes, listExecutions } from "../fixtures/n8n";
+import { executedNodes, getExecution, inboundHubEvent, listExecutions } from "../fixtures/n8n";
 import { cleanup, setupForConversation } from "../fixtures/state";
 
 /**
@@ -54,13 +54,32 @@ test("TESTE 2 — an automated reply is detected and never delivered", async () 
   }
   expect(nodes, "the bot gate should have routed to the dead end").toContain("Saída mensagem BOT");
 
-  // Nothing may have reached the handset. The inbound hub only fires when a
-  // message actually arrives at the test phone, so this is delivery observed
-  // from the other side rather than inferred from our own workflow.
-  const delivered = await listExecutions(env.workflows.inboundHub, { since, limit: 20 });
+  // Nothing may have reached the handset carrying the reply the agent just
+  // composed. This is NOT "zero executions on the inbound hub" -- that hub
+  // fires on every event on the lead-side WhatsApp instance, including
+  // asynchronous delivery-receipt acks for messages OTHER tests sent well
+  // before this one started. Observed: an ack for TESTE 1's send landed here
+  // 15+ minutes after TESTE 1 actually sent it, long after TESTE 1 had
+  // finished and TESTE 2 was already running -- a stale, unrelated event that
+  // a bare "0 executions" check reads as "the bot reply leaked."
+  //
+  // What actually cannot happen is THIS turn's suppressed text reaching the
+  // lead, so that is what gets matched: the content of every execution since
+  // `since` against what the agent composed (and never should have sent).
+  const composedText = composed.join(" ");
+  const runsSinceSend = await listExecutions(env.workflows.inboundHub, { since, limit: 20 });
+  const leaked: typeof runsSinceSend = [];
+  for (const run of runsSinceSend) {
+    const detail = await getExecution(run.id);
+    const event = inboundHubEvent(detail);
+    if (event?.content && composedText.includes(event.content.trim())) {
+      leaked.push(run);
+    }
+  }
   expect(
-    delivered.length,
-    `${delivered.length} message(s) reached the test handset; the bot reply should never leave`,
+    leaked.length,
+    `${leaked.length} execution(s) on the inbound hub carried the bot-suppressed reply's own ` +
+      `text -- it reached the handset after all. Composed text: ${composedText}`,
   ).toBe(0);
 
   // The scorer's own, independent guard: an automated message must not count as
