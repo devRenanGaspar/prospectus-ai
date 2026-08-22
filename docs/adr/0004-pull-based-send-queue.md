@@ -30,7 +30,8 @@ it only ever queues a lead into `SEND_PENDING` and waits.
   measured.
 - It bounds throughput per account regardless of how many leads are queued
   at once, which is the property that matters — a backlog of 500 queued
-  sends still egresses at one per 30 minutes per account, not as a burst.
+  sends still egresses at one per poll interval per account (15 minutes as
+  configured today), not as a burst.
 - The cost is a hard latency floor for every send, with no fast path even
   when a real human is actively waiting for a reply — accepted as the
   correct trade given the alternative is losing the WhatsApp number.

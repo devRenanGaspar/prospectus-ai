@@ -160,6 +160,22 @@ describe("isAuthorizedForAction", () => {
     }
   });
 
+  it("lets the operational token charge a conversation turn, and only that", () => {
+    // The SDR agent has to bill each turn and carries only the operational
+    // token, so `deduct_credits` -- which is sensitive -- 403s. That refusal
+    // was invisible for months because the calling node continues on error,
+    // and every turn went unbilled while every execution stayed green.
+    //
+    // `deduct_conversation_turn` is the narrow way back: the handler fixes
+    // `AI_CONVERSATION_TURN` in code, so the caller chooses who to bill and
+    // never what for. That is the whole reason it sits outside
+    // SENSITIVE_ACTIONS, and the two assertions below are what stops someone
+    // from "fixing" a future 403 by widening it back into a generic debit.
+    expect(SENSITIVE_ACTIONS.has("deduct_conversation_turn")).toBe(false);
+    expect(isAuthorizedForAction("deduct_conversation_turn", OPERATIONAL)).toBe(true);
+    expect(isAuthorizedForAction("deduct_credits", OPERATIONAL)).toBe(false);
+  });
+
   it("refuses anything when neither token matched", () => {
     expect(isAuthorizedForAction("query_leads", NEITHER)).toBe(false);
     expect(isAuthorizedForAction("add_credits", NEITHER)).toBe(false);

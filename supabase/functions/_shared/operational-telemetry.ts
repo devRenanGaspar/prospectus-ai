@@ -47,6 +47,7 @@ export const WEBHOOK_ACTIONS = new Set([
 
 export const N8N_ACTIONS = new Set([
   "add_credits",
+  "deduct_conversation_turn",
   "deduct_credits",
   "deduct_credits_bulk",
   "get_calendar_access_token",
