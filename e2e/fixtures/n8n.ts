@@ -108,6 +108,33 @@ export function publishedNodes(workflow: WorkflowDetail) {
   return workflow.activeVersion?.nodes ?? workflow.nodes;
 }
 
+/**
+ * What the `Webhook` node on an Evolution-fed hub (e.g. `HUB Tere - 2462`)
+ * actually received, or null if the shape doesn't match.
+ */
+export interface InboundHubEvent {
+  status: string | null;
+  content: string | null;
+}
+
+export function inboundHubEvent(execution: ExecutionDetail): InboundHubEvent | null {
+  const runs = execution.data?.resultData?.runData?.Webhook;
+  if (!Array.isArray(runs) || runs.length === 0) return null;
+  const last = runs[runs.length - 1] as {
+    data?: { main?: { json?: unknown }[][] };
+  };
+  const body = (
+    last?.data?.main?.[0]?.[0]?.json as
+      | { body?: { data?: { status?: string; message?: { conversation?: string } } } }
+      | undefined
+  )?.body;
+  if (!body) return null;
+  return {
+    status: body.data?.status ?? null,
+    content: body.data?.message?.conversation ?? null,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Webhooks (no auth on either of these)
 // ---------------------------------------------------------------------------

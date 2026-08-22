@@ -157,6 +157,38 @@ test.describe("preflight", () => {
       found.status,
       "The sender ran but did not finish cleanly — the lead-side messages in TESTES 2-5 would not be delivered",
     ).toBe("success");
+
+    // The marker is a real inbound message, so `Verifica Resposta` scores it
+    // like any other reply -- concurrently, with `waitForSubWorkflow: false`.
+    // Nothing about "Teste automatizado, ignore. E2E-..." matches the
+    // autoresponder patterns it screens for, so the LLM is free to call it
+    // genuine and write `lead_replied` / `status` on the FIXED lead.
+    //
+    // That write is not synchronous with the sender confirming delivery above
+    // -- it lands independently, and was observed landing ~50s after send.
+    // Left unguarded, TESTE 1's setup can reset the lead to COPY_READY and
+    // then have this write land seconds later and silently flip it back to
+    // IN_CONVERSATION, deep inside a 15-minute search wait where nothing is
+    // watching for it. Waiting here for the scorer to reach a terminal state
+    // makes this test's own side effect finish before the suite moves on, so
+    // whatever setup runs next is guaranteed to write last.
+    const scored = await waitUntil(
+      "preflight-marker-scored",
+      async (observe) => {
+        const runs = await listExecutions(env.workflows.replyScorer, { since, limit: 10 });
+        for (const run of runs) {
+          const detail = await getExecution(run.id);
+          if (!JSON.stringify(detail.data ?? {}).includes(marker)) continue;
+          observe(`scorer execution ${run.id} carries the marker, status "${detail.status}"`);
+          if (TERMINAL.has(detail.status)) return detail;
+          return null;
+        }
+        observe(`marker not seen yet in ${runs.length} scorer execution(s)`);
+        return null;
+      },
+      { timeoutMs: 90_000, intervalMs: 5_000 },
+    );
+    console.log(`[preflight] reply scorer settled on the marker: ${scored.status}`);
   });
 
   test("the account and the fixed lead are in a runnable state", async () => {
