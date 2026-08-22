@@ -62,3 +62,7 @@ secrets*.json
 # Local env files. Keep only the safe template in Git.
 .env*
 !.env.example
+
+# Playwright E2E (local, sob demanda)
+e2e/report/
+e2e/test-results/

@@ -743,6 +743,7 @@
         "npm:@hello-pangea/dnd@^18.0.1",
         "npm:@hookform/resolvers@^3.10.0",
         "npm:@lovable.dev/cloud-auth-js@1",
+        "npm:@playwright/test@^1.62.1",
         "npm:@radix-ui/react-accordion@1.2.2",
         "npm:@radix-ui/react-alert-dialog@1.1.4",
         "npm:@radix-ui/react-avatar@1.1.2",
