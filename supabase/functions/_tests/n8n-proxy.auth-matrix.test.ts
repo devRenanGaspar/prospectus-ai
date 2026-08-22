@@ -38,12 +38,12 @@ async function callWithToken(action: string, token: string | null): Promise<Resp
 
 const ACTIONS = [...N8N_ACTIONS].sort();
 
-Deno.test("the auth matrix covers exactly the 26 actions the handler dispatches", () => {
+Deno.test("the auth matrix covers exactly the 27 actions the handler dispatches", () => {
   // Fails if a new action is added to the switch without being added to the
   // telemetry allow-list this test reads from, or vice versa -- the same
   // property src/test/n8n-proxy-guards.test.ts asserts from the source-text
   // side. Here it is asserted by actually calling the handler.
-  assertEquals(ACTIONS.length, 26);
+  assertEquals(ACTIONS.length, 27);
 });
 
 Deno.test("no credential at all: every action refuses with 401, before any I/O", async () => {

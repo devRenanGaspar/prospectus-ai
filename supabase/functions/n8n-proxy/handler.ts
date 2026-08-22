@@ -819,6 +819,45 @@ export async function handler(req: Request): Promise<Response> {
         break;
       }
 
+      // ── DEDUCT ONE CONVERSATION TURN ──
+      //
+      // The SDR agent bills itself once per turn, and `deduct_credits` is not
+      // the way to do it: that action is sensitive, so the operational token
+      // the agent carries gets a 403. The calling node is set to
+      // `continueRegularOutput`, so the refusal never surfaced anywhere --
+      // every execution stayed green and every conversation turn went unbilled.
+      //
+      // Handing the agent the admin token would clear the 403 by putting a
+      // credential that can grant credits and open accounts into every SDR
+      // workflow. This action is the narrow alternative: the caller says WHO
+      // to bill, never WHAT for. `AI_CONVERSATION_TURN` is fixed here in code,
+      // so a leak of the operational token buys the ability to charge
+      // conversation turns and nothing else -- where `deduct_credits` takes a
+      // caller-supplied `action_name` and can charge any priced action.
+      //
+      // It stays out of SENSITIVE_ACTIONS for that reason, and only that
+      // reason: the tier is about what a credential can be talked into doing,
+      // not about whether the word "credits" appears in the handler.
+      case "deduct_conversation_turn": {
+        const { user_id: ctUid, lead_id: ctLead, metadata: ctMeta, phone: ctPhone } = body;
+        if (!ctUid) {
+          return new Response(JSON.stringify({ error: "user_id required" }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const { data: ctData, error: ctError } = await admin.rpc("deduct_credits", {
+          _user_id: ctUid,
+          _action_name: "AI_CONVERSATION_TURN",
+          _lead_id: ctLead || null,
+          _metadata: ctMeta || {},
+          _phone: ctPhone || null,
+        });
+        if (ctError) throw ctError;
+        result = ctData;
+        break;
+      }
+
       // ── INSERT LEAD COMMENTS (batch) ──
       case "insert_lead_comments": {
         const { lead_id: clid, comments: commentsList } = body;

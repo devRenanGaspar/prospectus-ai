@@ -106,7 +106,7 @@ flowchart TB
     W_COPY --> LLM
     W_AGENT --> LLM
     W_AGENT --> CAL
-    EF_POLL -.->|n8n polls every 30 min<br/>one lead per account| W_SEND
+    EF_POLL -.->|n8n polls every 15 min<br/>one lead per account| W_SEND
     W_SEND --> EVO
     EVO -->|inbound message| W_AGENT
     W_SEARCH & W_COPY & W_SEND & W_AGENT -->|shared token| EF_IN
@@ -121,7 +121,7 @@ authenticated `user_id` rather than trusting the client's. Inbound goes through
 `n8n-proxy` with a shared token and the service role. State changes reach the UI
 over Supabase Realtime.
 
-Sending is deliberately pull-based: n8n polls `send-queue-poll` every 30 minutes
+Sending is deliberately pull-based: n8n polls `send-queue-poll` every 15 minutes
 and receives at most one lead per account. That is the rate limiter that keeps a
 WhatsApp number from being flagged.
 
@@ -234,7 +234,7 @@ and the detection worked while the response did not — nothing was paging anyon
 
 ## Evaluation and testing
 
-221 tests run in CI on every pull request -- 201 under Vitest, 20 under Deno,
+222 tests run in CI on every pull request -- 202 under Vitest, 20 under Deno,
 the two counted separately because the Deno suite drives the deployed edge
 function handlers directly through a routed fetch stub rather than importing
 them into the Vitest/jsdom environment they don't run in. Alongside them: lint,
@@ -303,7 +303,7 @@ from 2026-06-11 onward:
 | Lead's first reply | 729 | 54 s | — | — |
 
 Read these with the caveat they deserve. Send latency is dominated by design,
-not by slowness: the queue is polled every 30 minutes and delivers one lead per
+not by slowness: the queue is polled every 15 minutes and delivers one lead per
 account, so the p50 is mostly queue wait. Sourcing p99 is contaminated by rows
 that sat for a day or more before being marked complete.
 
