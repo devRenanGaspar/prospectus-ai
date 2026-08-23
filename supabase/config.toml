@@ -1,0 +1,34 @@
+project_id = "tumqhovjzjojmrfoshou"
+
+[functions]
+  [functions.auth-email-hook]
+    verify_jwt = false
+  [functions.google-calendar-auth-url]
+    verify_jwt = false
+  [functions.google-calendar-callback]
+    verify_jwt = false
+  [functions.frontend-telemetry]
+    verify_jwt = true
+  [functions.n8n-proxy]
+    verify_jwt = false
+  [functions.process-email-queue]
+    verify_jwt = false
+  # Autentica por X-Email-Queue-Token (token compartilhado no vault, não um
+  # JWT do Supabase) — com verify_jwt=true o gateway rejeitaria a chamada
+  # do cron antes da função rodar. Validado por RPC (verify_email_queue_token).
+  # O pg_cron/trigger que chama esta função não tem como obter um JWT do
+  # Supabase (não roda em contexto Deno), e o vault secret que a autenticação
+  # anterior usava (email_queue_service_role_key, uma service_role key) não
+  # sobrevive a snapshot/restore do projeto — mesmo padrão de send-ops-alert.
+
+  # Autentica por N8N_SHARED_TOKEN (não é JWT do Supabase); com verify_jwt=true
+  # o gateway rejeitaria as chamadas do n8n antes da função rodar.
+  [functions.send-queue-poll]
+    verify_jwt = false
+  [functions.send-ops-alert]
+    verify_jwt = false
+  # Autentica por X-Ops-Alert-Token (token compartilhado no vault, não um
+  # JWT do Supabase) — com verify_jwt=true o gateway rejeitaria a chamada
+  # do cron antes da função rodar. Validado por RPC (verify_ops_alert_token).
+  [functions.webhook-proxy]
+    verify_jwt = false

@@ -1,0 +1,1 @@
+ALTER TABLE public.niche_options ADD COLUMN lead_category text;

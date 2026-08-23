@@ -1,0 +1,1 @@
+ALTER TABLE public.lead_comments ADD COLUMN rating integer;

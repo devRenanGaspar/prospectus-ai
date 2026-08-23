@@ -1,0 +1,1 @@
+ALTER TABLE public.profiles ADD COLUMN n8n_workflow_id text DEFAULT NULL;

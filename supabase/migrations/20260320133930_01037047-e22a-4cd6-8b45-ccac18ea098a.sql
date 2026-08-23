@@ -1,0 +1,1 @@
+ALTER TABLE public.leads ADD COLUMN ai_agent_enabled boolean NOT NULL DEFAULT true;

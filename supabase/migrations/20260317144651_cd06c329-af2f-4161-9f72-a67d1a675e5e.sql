@@ -1,0 +1,1 @@
+ALTER TABLE public.leads ALTER COLUMN user_id DROP NOT NULL;

@@ -1,0 +1,68 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Dependencies and build output
+node_modules/
+dist/
+dist-ssr/
+coverage/
+
+# Tooling state and local agent configuration
+.claude/
+.codex/
+.mcp.json
+.wrangler/
+.dev.vars*
+supabase/.temp/
+
+# Local-only files and data exports
+*.local
+*.backup
+*.bak
+*.dump
+*.sql.gz
+
+# Internal operational analysis. These hold prompt text, tenant identifiers and
+# defects that are still open, so they stay out of the public repository. What
+# is safe to publish from them is summarised in README.md and docs/.
+docs/operations/prospectus-*.md
+
+# Execution plans from the plan-revisor workflow. They enumerate defects and
+# the exact files affected, so they stay local rather than published.
+plano-revisor-*.md
+.plano-revisor
+
+# Credentials and private keys
+.npmrc
+.netrc
+*.pem
+*.key
+*.p12
+*.pfx
+credentials*.json
+secrets*.json
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Local env files. Keep only the safe template in Git.
+.env*
+!.env.example
+
+# Playwright E2E (local, sob demanda)
+e2e/report/
+e2e/test-results/

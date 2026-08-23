@@ -1,0 +1,17 @@
+ALTER TABLE public.leads
+  ADD COLUMN google_place_id text,
+  ADD COLUMN phone text,
+  ADD COLUMN neighborhood text,
+  ADD COLUMN city text,
+  ADD COLUMN total_score text,
+  ADD COLUMN reviews_count text,
+  ADD COLUMN rank text,
+  ADD COLUMN website text,
+  ADD COLUMN images_count text,
+  ADD COLUMN image_url text,
+  ADD COLUMN category_name text,
+  ADD COLUMN cnpj text,
+  ADD COLUMN instagram text,
+  ADD COLUMN lead_replied text,
+  ADD COLUMN lead_reply_score text,
+  ADD COLUMN mensagem_abordagem_comercial text;
