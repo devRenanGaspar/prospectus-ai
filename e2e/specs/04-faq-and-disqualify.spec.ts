@@ -105,6 +105,26 @@ test("TESTE 4 — FAQ answers, no hallucination, and a clean disqualification", 
           `  Read this: anything here beyond the FAQ line is the agent's own invention.`,
       );
     }
+
+    // The agent can hand off to a human on ANY turn, not only the
+    // deliberately out-of-scope question below — its prompt lists broad
+    // judgment-call conditions, and it has been observed doing so on a
+    // plain, in-scope FAQ question it had already answered from the
+    // knowledge base ("deixa eu chamar alguém da equipe pra te explicar as
+    // diferenças"). A hand-off switches agent_on_off OFF at the tenant
+    // level; left unhandled, the NEXT say() in this loop runs straight into
+    // a conversation the workflow correctly refuses to continue, and times
+    // out after 6 minutes for a reason that has nothing to do with FAQ
+    // correctness. Resuming here — unconditionally, same as the check below
+    // for the out-of-scope question — closes that gap; it is a no-op when
+    // nothing happened.
+    if (tools.has(AGENT_TOOLS.callHuman)) {
+      console.log(
+        `[teste4] chamar_humano fired on an in-scope FAQ question ("${entry.pergunta}") — ` +
+          `resuming the agent so the next question isn't sent into a silenced conversation`,
+      );
+    }
+    await resumeAfterHandoff();
   }
 
   // The binding claim: the knowledge base is reachable and the agent does use
