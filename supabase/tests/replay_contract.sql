@@ -63,8 +63,8 @@ begin
   -- names that production replaced long ago; the seed migration removes them,
   -- so a replay must not resurrect them.
   select count(*) into _n from public.niche_options where is_active;
-  if _n <> 15 then
-    raise exception 'expected 15 active niche_options, got %', _n;
+  if _n <> 16 then
+    raise exception 'expected 16 active niche_options, got %', _n;
   end if;
 
   if exists (
@@ -72,6 +72,12 @@ begin
     where name in ('Médicos', 'Salão de Beleza', 'Advogados')
   ) then
     raise exception 'the superseded legacy niches are back in the catalogue';
+  end if;
+
+  if not exists (
+    select 1 from public.niche_options where name = 'Indústria/Fábrica' and is_active
+  ) then
+    raise exception 'the Indústria/Fábrica niche is missing from the catalogue';
   end if;
 
   -- app_settings is a single-row table the maintenance mode reads.
